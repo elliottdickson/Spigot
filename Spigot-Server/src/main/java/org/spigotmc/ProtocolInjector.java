@@ -7,6 +7,15 @@ import net.minecraft.server.Packet;
 import net.minecraft.server.PacketDataSerializer;
 import net.minecraft.server.PacketListener;
 import net.minecraft.util.com.google.common.collect.BiMap;
+import java.io.IOException;
+
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.chat.ComponentSerializer;
+import net.minecraft.server.v1_7_R4.ChatSerializer;
+import net.minecraft.server.v1_7_R4.IChatBaseComponent;
+import net.minecraft.server.v1_7_R4.Packet;
+import net.minecraft.server.v1_7_R4.PacketDataSerializer;
+import net.minecraft.server.v1_7_R4.PacketListener;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -22,8 +31,10 @@ public class ProtocolInjector
 
             addPacket( EnumProtocol.PLAY, true, 0x45, PacketTitle.class );
             addPacket( EnumProtocol.PLAY, true, 0x47, PacketTabHeader.class );
+            addPacket( EnumProtocol.PLAY, true, 0x02, CustomPacketPlayOutChat.class );
             addPacket( EnumProtocol.PLAY, true, 0x48, PacketPlayResourcePackSend.class );
             addPacket( EnumProtocol.PLAY, false, 0x19, PacketPlayResourcePackStatus.class );
+            
         } catch ( NoSuchFieldException e )
         {
             e.printStackTrace();
@@ -250,4 +261,79 @@ public class ProtocolInjector
             RESET
         }
     }
+    
+    public static class CustomPacketPlayOutChat extends Packet {
+        
+    private IChatBaseComponent a;
+    public BaseComponent[] components;
+    private boolean b;
+    private Position position = Position.CHAT;
+
+    public CustomPacketPlayOutChat() {
+        this.b = true;
+    }
+
+    public CustomPacketPlayOutChat(IChatBaseComponent ichatbasecomponent) {
+        this(ichatbasecomponent, true);
+    }
+
+    public CustomPacketPlayOutChat(IChatBaseComponent ichatbasecomponent,
+                                   boolean flag) {
+        this.b = true;
+        this.a = ichatbasecomponent;
+        this.b = flag;
+    }
+
+    public void setPosition(Position position) {
+        this.position = position;
+    }
+
+    public void a(PacketDataSerializer packetdataserializer) throws IOException {
+        this.a = ChatSerializer.a(packetdataserializer.c(32767));
+    }
+
+    public void b(PacketDataSerializer packetdataserializer) throws IOException {
+        if (this.components != null) {
+            packetdataserializer.a(ComponentSerializer
+                    .toString(this.components));
+        } else {
+            packetdataserializer.a(ChatSerializer.a(this.a));
+        }
+        if (packetdataserializer.version >= 16) {
+            switch (position) {
+                case CHAT:
+                    packetdataserializer.writeByte(0);
+                    break;
+                case SYSTEM:
+                    packetdataserializer.writeByte(1);
+                    break;
+                case ACTIONBAR:
+                    packetdataserializer.writeByte(2);
+                    break;
+                default:
+                    packetdataserializer.writeByte(0);
+            }
+        }
+    }
+
+    public String b() {
+        return String.format("message='%s'", new Object[] { this.a });
+    }
+
+    public boolean d() {
+        return this.b;
+    }
+
+    public void handle(PacketListener packetlistener) {
+
+    }
+
+    public static enum Position {
+        CHAT, SYSTEM, ACTIONBAR;
+
+        private Position() {
+
+        }
+    }
+}
 }
